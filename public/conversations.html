@@ -15,9 +15,8 @@
     .thread-card { padding: 12px; border-radius: 12px; cursor: pointer; margin-bottom: 4px; display: flex; gap: 12px; align-items: center; position: relative; transition: all 0.2s; border: 1px solid transparent; }
     .thread-card:hover { background: rgba(255, 255, 255, 0.05); }
     .thread-card.active { background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.2); }
-    .thread-card.needs-reply { background: rgba(245, 158, 11, 0.05); }
     .thread-card.needs-reply::after { content: ''; position: absolute; left: 0; top: 20%; bottom: 20%; width: 3px; background: var(--yellow); border-radius: 0 4px 4px 0; }
-    .thread-card.needs-reply .thread-name { color: var(--yellow); font-weight: 700; }
+    .thread-card.needs-reply .thread-name { color: var(--yellow); }
     .btn-delete-thread { position: absolute; right: 8px; opacity: 0; transition: 0.2s; background: #ef4444; color: white; border: none; border-radius: 6px; padding: 4px 6px; font-size: 10px; cursor: pointer; z-index: 2; }
     .thread-card:hover .btn-delete-thread { opacity: 1; }
     .chat-col { display: flex; flex-direction: column; background: var(--bg); height: 100%; overflow: hidden; }
@@ -37,7 +36,7 @@
     .msg-group.in { align-self: flex-start; }
     .msg-group.out { align-self: flex-end; align-items: flex-end; }
     .bubble { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.5; word-wrap: break-word; }
-    .msg-group.in .bubble { background: #1e293b; color: #fff; border-bottom-left-radius: 4px; }
+    .msg-group.in .bubble { background: #1e293b; color: #fff; border-bottom-left-radius: 4px; border: 1px solid var(--line); }
     .msg-group.out .bubble { background: var(--blue); color: #fff; border-bottom-right-radius: 4px; }
     .msg-meta { font-size: 10px; color: var(--muted); margin-top: 4px; }
     .type-badge { font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); color: var(--muted); margin-top: 4px; display: inline-block; }
@@ -74,7 +73,7 @@
 
         <div class="thread-col">
           <div class="thread-header">
-            <h3 style="margin:0; font-size: 15px; font-weight: 700;">Tin nhắn</h3>
+            <h3 style="margin:0; font-size: 15px; font-weight: 700;">Hội thoại</h3>
             <button class="btn secondary" id="refreshBtn" style="padding: 4px 8px; font-size: 11px;">Làm mới</button>
           </div>
           <div id="threads" class="thread-list"></div>
@@ -134,7 +133,7 @@
                 <div class="thread-name" style="font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(name)}</div>
                 ${t.needsReply ? '<span style="width: 8px; height: 8px; background: var(--yellow); border-radius: 50%;"></span>' : ''}
               </div>
-              <div class="type-badge">${t.type.toUpperCase()}</div>
+              <div style="font-size: 10px; color: var(--muted); opacity: 0.7;">${t.threadId}</div>
             </div>
             <button class="btn-delete-thread" onclick="deleteT(event, '${t.threadId}')">Xóa</button>
           </div>`;
@@ -162,7 +161,10 @@
       try {
         const data = await api(`/api/messages?threadId=${encodeURIComponent(currentThreadId)}`);
         const wrap = document.getElementById('messages'); const atBottom = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight < 100;
-        wrap.innerHTML = data.messages.map(m => `<div class="msg-group ${m.direction}"><div class="bubble">${escapeHtml(m.text)}</div><div class="msg-meta">${escapeHtml(m.at)}</div></div>`).join('');
+        wrap.innerHTML = data.messages.map(m => {
+          const nameTag = m.direction === 'in' ? `<div style="font-size: 11px; color: var(--muted); margin-bottom: 4px;">${escapeHtml(m.senderName || 'Người dùng')}</div>` : '';
+          return `<div class="msg-group ${m.direction}">${nameTag}<div class="bubble">${escapeHtml(m.text)}</div><div class="msg-meta">${escapeHtml(m.at)}</div></div>`;
+        }).join('');
         if (atBottom) wrap.scrollTop = wrap.scrollHeight;
       } catch (e) {}
     }

@@ -2,6 +2,18 @@ import { logger } from './logger.js';
 import { extractTextContent, isThreadAllowed, shouldReplyInGroup, shouldSendFirstGreeting } from './policies.js';
 import { makeMessageRecord } from './message-store.js';
 
+function cleanMarkdown(text) {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '$1')
+    .replace(/__(.*?)__/g, '$1')
+    .replace(/\*(.*?)\*/g, '$1')
+    .replace(/_(.*?)_/g, '$1')
+    .replace(/\[(.*?)\]\(.*?\)/g, '$1')
+    .replace(/`(.*?)`/g, '$1')
+    .replace(/###?\s+/g, '')
+    .trim();
+}
+
 export class MessageHandler {
   constructor({ api, ownId, getSettings, createAiBackend, conversations, messageStore }) {
     this.api = api;
@@ -16,19 +28,14 @@ export class MessageHandler {
     const settings = await this.getSettings();
     const text = extractTextContent(message);
     
-    // 1. Bỏ qua nếu là tin nhắn của chính mình hoặc tin nhắn trống
     if (message.isSelf || !text) return { skipped: 'self_or_empty' };
-    
-    // 2. Kiểm tra Policy (whitelist/blacklist thread nếu có cấu hình)
     if (!isThreadAllowed(message)) return { skipped: 'policy_blocked' };
 
     const threadType = message.type === 1 ? 'group' : 'dm';
-    
-    // 3. LUÔN LUÔN LƯU VÀO DATABASE VÀ BỘ NHỚ (Để xây dựng lịch sử chat)
     const senderName = message.data.dName || message.data.displayName || null;
     const groupName = threadType === 'group' ? (message.data.gName || message.data.groupName || null) : null;
 
-    // Lưu vào SQLite
+    // 1. Lưu vào SQLite
     await this.messageStore.saveMessage(
       makeMessageRecord({
         id: `in-${message.threadId}-${message.data.msgId || Date.now()}`,
@@ -43,41 +50,47 @@ export class MessageHandler {
       }),
     );
 
-    // Lưu vào bộ nhớ tạm phiên làm việc
-    this.conversations.appendUserMessage(message.threadId, text);
+    // 2. Lưu vào bộ nhớ (Có tên)
+    this.conversations.appendUserMessage(message.threadId, text, senderName);
 
-    // 4. KIỂM TRA ĐIỀU KIỆN TRẢ LỜI
-    // Nếu trong nhóm và KHÔNG được tag tên -> Kết thúc tại đây (chỉ lưu, không rep)
+    // 3. Kiểm tra tag tên (@Mention)
     if (!shouldReplyInGroup(message, this.ownId, settings)) {
       return { skipped: 'silent_listening_for_history' };
     }
 
-    // 5. NẠP LỊCH SỬ TỪ DATABASE NẾU CẦN (Để AI có trí nhớ dài hạn khi bắt đầu rep)
+    // 4. Đồng bộ lịch sử từ DB (Nếu bộ nhớ mới khởi tạo)
     const memory = this.conversations.get(message.threadId);
-    if (memory.history.length <= 1) { // Chỉ có 1 tin vừa lưu ở trên
+    if (memory.history.length <= 1) {
       const dbHistory = await this.messageStore.listMessages(message.threadId, 30);
-      // Xóa history tạm thời để nạp lại từ DB cho chuẩn thứ tự
       memory.history = [];
       for (const m of dbHistory) {
         if (m.direction === 'in') {
-          this.conversations.appendUserMessage(message.threadId, m.text);
+          this.conversations.appendUserMessage(message.threadId, m.text, m.senderName);
         } else {
           this.conversations.appendAssistantMessage(message.threadId, m.text);
         }
       }
     }
 
-    // 6. GỌI AI ĐỂ TRẢ LỜI
+    // 5. Gọi AI
     const aiBackend = this.createAiBackend(settings);
-    
     let model = settings.openaiModel;
     if (settings.aiBackend === 'openrouter') model = settings.openrouterModel;
     if (settings.aiBackend === 'ollama') model = settings.ollamaModel;
     if (settings.aiBackend === 'custom') model = settings.customAiModel;
 
-    const systemPromptEnhanced = `${settings.systemPrompt}\n\nLƯU Ý: Bạn đang xem lịch sử hội thoại gồm nhiều người. Hãy sử dụng ngữ cảnh này để trả lời hoặc tóm tắt nếu được yêu cầu. Trả lời ngắn gọn, tự nhiên.`;
+    const botName = settings.botDisplayName || "Bot";
+    const systemPromptEnhanced = `${settings.systemPrompt}
+---
+QUY TẮC PHẢN HỒI:
+- Bạn là AI trợ lý tên "${botName}". Bạn đang ở trong ${threadType === 'group' ? `nhóm "${groupName}"` : "hội thoại riêng"}.
+- Bạn sẽ nhận được Lịch sử hội thoại bên trên. Hãy đọc kỹ nó.
+- Khi người dùng yêu cầu "tóm tắt", hãy phân tích các tin nhắn trong lịch sử và đưa ra bản tóm tắt ngắn gọn theo từng ý chính. 
+- TUYỆT ĐỐI KHÔNG lặp lại tin nhắn của người dùng một cách máy móc.
+- Trả lời bằng tiếng Việt tự nhiên, không dùng Markdown (không **, không [], không #).
+- Nếu không có đủ thông tin để tóm tắt, hãy lịch sự yêu cầu thêm thông tin.`;
 
-    let reply = await aiBackend.generateReply({
+    let aiReply = await aiBackend.generateReply({
       text,
       memory: this.conversations.get(message.threadId),
       threadType,
@@ -88,28 +101,21 @@ export class MessageHandler {
       },
     });
 
-    // 7. XỬ LÝ CÂU CHÀO ĐẦU (Chỉ cho cá nhân)
+    let reply = cleanMarkdown(aiReply);
+
     if (threadType === 'dm' && shouldSendFirstGreeting(memory)) {
       reply = `${settings.zaloFirstGreeting}\n${settings.zaloIntroHint}\n\n${reply}`;
     }
 
-    // 8. GỬI TIN NHẮN
     try {
       await this.api.sendTypingEvent(message.threadId, message.type);
     } catch (error) {
       logger.debug({ err: error }, 'sendTypingEvent failed');
     }
 
-    await this.api.sendMessage(
-      {
-        msg: reply,
-        quote: message.data,
-      },
-      message.threadId,
-      message.type,
-    );
+    await this.api.sendMessage({ msg: reply, quote: message.data }, message.threadId, message.type);
 
-    // 9. LƯU TIN NHẮN BOT VÀO LỊCH SỬ
+    // 6. Lưu tin nhắn bot
     this.conversations.appendAssistantMessage(message.threadId, reply);
     await this.messageStore.saveMessage(
       makeMessageRecord({
@@ -118,7 +124,7 @@ export class MessageHandler {
         threadType,
         direction: 'out',
         senderId: this.ownId,
-        senderName: 'bot',
+        senderName: botName,
         groupName: groupName,
         text: reply,
         raw: { quoteTo: message.data.msgId || null },

@@ -69,7 +69,10 @@ async function attachZalo(api, messageStore) {
   runtime.handler = new MessageHandler({
     api,
     ownId,
-    getSettings: async () => state.settings || loadSettings(),
+    getSettings: async () => ({
+      ...(state.settings || await loadSettings()),
+      botDisplayName: state.account?.displayName || 'Bot'
+    }),
     createAiBackend,
     conversations,
     messageStore,
@@ -89,6 +92,10 @@ async function attachZalo(api, messageStore) {
   });
   api.listener.on('message', async (message) => {
     try {
+      const sender = message.data.dName || message.data.displayName || message.threadId;
+      const text = message.data.content || '';
+      console.log(`\x1b[36m[Chat]\x1b[0m \x1b[32m${sender}:\x1b[0m ${text}`);
+
       const result = await runtime.handler.handle(message);
       logger.info({ threadId: message.threadId, result }, 'Processed incoming message');
       logBuffer.push('info', 'Processed incoming message', { threadId: message.threadId, result });

@@ -21,8 +21,19 @@ export function extractTextContent(message) {
 export function shouldReplyInGroup(message, ownId, settings) {
   if (message.type !== 1) return true;
   if (!(settings?.zaloGroupRequireMention ?? appConfig.zaloGroupRequireMention)) return true;
+  
+  // 1. Kiểm tra qua mảng mentions chuẩn của Zalo
   const mentions = Array.isArray(message?.data?.mentions) ? message.data.mentions : [];
-  return mentions.some((mention) => String(mention.uid) === String(ownId));
+  const isMentioned = mentions.some((mention) => String(mention.uid) === String(ownId));
+  if (isMentioned) return true;
+
+  // 2. Dự phòng: Kiểm tra xem trong text có chứa tên bot không (đề phòng mentions array trống)
+  const text = extractTextContent(message).toLowerCase();
+  // Bạn có thể thêm các từ khóa khác vào đây nếu muốn
+  const botKeywords = ['@bot', 'bot ơi', 'hey bot'];
+  if (botKeywords.some(k => text.includes(k))) return true;
+
+  return false;
 }
 
 export function shouldSendFirstGreeting(memory) {

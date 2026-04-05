@@ -3,7 +3,6 @@ import { logger } from '../logger.js';
 
 export class ClientBackedAi {
   constructor({ apiKey, model, baseURL, systemPrompt }) {
-    // Standard OpenAI or OpenAI-compatible backend (OpenRouter, Ollama, etc.)
     this.client = new OpenAI({ 
       apiKey: apiKey || 'missing-key', 
       baseURL: baseURL || undefined 
@@ -15,26 +14,34 @@ export class ClientBackedAi {
   async generateReply({ text, memory, threadType, settings }) {
     try {
       const systemPrompt = settings?.systemPrompt || this.systemPrompt;
-      const history = (memory.history || []).slice(-10).map((item) => ({
-        role: item.role === 'assistant' ? 'assistant' : 'user',
-        content: item.text,
-      }));
+      
+      // Lấy lịch sử, BỎ QUA tin nhắn cuối cùng (vì tin nhắn cuối chính là câu lệnh hiện tại 'text')
+      const fullHistory = memory.history || [];
+      const previousMessages = fullHistory.slice(0, -1);
+
+      const historyFormatted = previousMessages.map((item) => {
+        const namePrefix = item.senderName ? `[${item.senderName}]: ` : '';
+        return {
+          role: item.role === 'assistant' ? 'assistant' : 'user',
+          content: `${namePrefix}${item.text}`,
+        };
+      });
 
       const modelToUse = settings?.model || this.model;
       
-      logger.debug({ model: modelToUse, historyLength: history.length }, 'AI generating reply...');
+      logger.debug({ model: modelToUse, historyLength: historyFormatted.length }, 'AI generating reply...');
 
       const response = await this.client.chat.completions.create({
         model: modelToUse,
         messages: [
           {
             role: 'system',
-            content: `${systemPrompt}\nNgữ cảnh: Bạn đang trả lời trong ${threadType === 'group' ? 'một nhóm chat Zalo' : 'một cuộc hội thoại riêng'}. Trả lời tự nhiên, ngắn gọn.`,
+            content: systemPrompt,
           },
-          ...history,
+          ...historyFormatted,
           {
             role: 'user',
-            content: text,
+            content: text, // Đây là câu lệnh thực tế: "tóm tắt nội dung..."
           },
         ],
       });
@@ -43,9 +50,7 @@ export class ClientBackedAi {
       return reply?.trim() || 'Dạ, bot chưa nghĩ ra câu trả lời phù hợp.';
     } catch (error) {
       logger.error({ err: error }, 'AI generateReply failed');
-      // Return a user-friendly error message depending on the error type
-      if (error.status === 401) return '❌ Lỗi AI: Sai API Key hoặc chưa cấu hình key trong Cài đặt.';
-      if (error.status === 404) return `❌ Lỗi AI: Model "${settings?.model || this.model}" không tồn tại.`;
+      if (error.status === 401) return '❌ Lỗi AI: Sai API Key hoặc chưa cấu hình key.';
       return `❌ Lỗi AI: ${error.message}`;
     }
   }
