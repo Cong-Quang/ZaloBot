@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Conversations - Zalo Bot Admin</title>
+  <link rel="stylesheet" href="/assets/app.css" />
+  <style>
+    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+    .layout { display: grid; grid-template-columns: var(--sidebar-w) 1fr; height: 100vh; overflow: hidden; }
+    .main { padding: 0; height: 100vh; display: flex; flex-direction: column; }
+    .conv-layout { display: grid; grid-template-columns: 320px 1fr; flex: 1; overflow: hidden; border-top: 1px solid var(--line); }
+    .thread-col { display: flex; flex-direction: column; border-right: 1px solid var(--line); background: rgba(15, 23, 42, 0.4); height: 100%; overflow: hidden; }
+    .thread-list { flex: 1; overflow-y: auto; padding: 8px; }
+    .thread-card { padding: 12px; border-radius: 12px; cursor: pointer; margin-bottom: 4px; display: flex; gap: 12px; align-items: center; position: relative; transition: all 0.2s; border: 1px solid transparent; }
+    .thread-card:hover { background: rgba(255, 255, 255, 0.05); }
+    .thread-card.active { background: rgba(59, 130, 246, 0.15); border-color: rgba(59, 130, 246, 0.2); }
+    .thread-card.needs-reply { background: rgba(245, 158, 11, 0.05); }
+    .thread-card.needs-reply::after { content: ''; position: absolute; left: 0; top: 20%; bottom: 20%; width: 3px; background: var(--yellow); border-radius: 0 4px 4px 0; }
+    .thread-card.needs-reply .thread-name { color: var(--yellow); font-weight: 700; }
+    .btn-delete-thread { position: absolute; right: 8px; opacity: 0; transition: 0.2s; background: #ef4444; color: white; border: none; border-radius: 6px; padding: 4px 6px; font-size: 10px; cursor: pointer; z-index: 2; }
+    .thread-card:hover .btn-delete-thread { opacity: 1; }
+    .chat-col { display: flex; flex-direction: column; background: var(--bg); height: 100%; overflow: hidden; }
+    .chat-header { padding: 12px 20px; border-bottom: 1px solid var(--line); background: rgba(15, 23, 42, 0.3); display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+    .messages-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+    .reply-area { padding: 16px 20px; background: rgba(15, 23, 42, 0.5); border-top: 1px solid var(--line); flex-shrink: 0; }
+    .file-previews { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .file-tag { background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); padding: 4px 10px; border-radius: 8px; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+    .file-tag .remove { cursor: pointer; color: var(--red); font-weight: bold; }
+    .reply-box { display: flex; gap: 10px; background: #0b1220; border: 1px solid var(--line); border-radius: 16px; padding: 8px 12px; align-items: flex-end; }
+    .reply-box textarea { background: transparent; border: none; padding: 8px 0; resize: none; flex: 1; color: white; font-size: 15px; line-height: 1.5; max-height: 150px; min-height: 24px; outline: none; }
+    .action-btn { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; border: none; background: rgba(255,255,255,0.05); color: var(--muted); cursor: pointer; transition: 0.2s; flex-shrink: 0; }
+    .action-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+    .action-btn.send { background: var(--blue); color: white; }
+    .connection-overlay { position: absolute; inset: 0; background: var(--bg); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; }
+    .msg-group { max-width: 80%; display: flex; flex-direction: column; }
+    .msg-group.in { align-self: flex-start; }
+    .msg-group.out { align-self: flex-end; align-items: flex-end; }
+    .bubble { padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.5; word-wrap: break-word; }
+    .msg-group.in .bubble { background: #1e293b; color: #fff; border-bottom-left-radius: 4px; }
+    .msg-group.out .bubble { background: var(--blue); color: #fff; border-bottom-right-radius: 4px; }
+    .msg-meta { font-size: 10px; color: var(--muted); margin-top: 4px; }
+    .type-badge { font-size: 9px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.1); color: var(--muted); margin-top: 4px; display: inline-block; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand"><h1>Zalo Bot Admin</h1><div class="sub">Standalone Management</div></div>
+      <nav class="nav-links">
+        <a href="/dashboard" class="nav-item">Dashboard</a>
+        <a href="/conversations" class="nav-item">Conversations</a>
+        <a href="/settings" class="nav-item">Settings</a>
+        <a href="/logs" class="nav-item">Logs</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div id="zaloStatusBanner" class="badge">Checking...</div>
+        <button id="btnLogoutZalo" class="btn danger" style="padding: 8px; font-size: 11px;">Đăng xuất Zalo</button>
+        <button id="btnReloginZalo" class="btn secondary" style="padding: 8px; font-size: 11px;">Kết nối lại</button>
+        <div class="divider"></div>
+        <button id="btnLogoutAdmin" class="btn ghost" style="padding: 8px; font-size: 11px;">Thoát Admin</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="conv-layout">
+        <div id="disconnectedOverlay" class="connection-overlay" style="display: none;">
+          <div class="card" style="max-width: 360px; text-align: center; padding: 30px;">
+            <h3 style="margin-top: 0;">Zalo chưa kết nối</h3>
+            <div id="qrContainer" style="background: white; padding: 8px; border-radius: 10px; margin-bottom: 20px; display: inline-block;"></div>
+            <button class="btn" style="width: 100%" onclick="location.reload()">Kiểm tra kết nối</button>
+          </div>
+        </div>
+
+        <div class="thread-col">
+          <div class="thread-header">
+            <h3 style="margin:0; font-size: 15px; font-weight: 700;">Tin nhắn</h3>
+            <button class="btn secondary" id="refreshBtn" style="padding: 4px 8px; font-size: 11px;">Làm mới</button>
+          </div>
+          <div id="threads" class="thread-list"></div>
+        </div>
+
+        <div class="chat-col">
+          <div id="chatHeader" class="chat-header" style="display: none;">
+            <div id="activeAvatar" style="width: 36px; height: 36px; border-radius: 10px; background: var(--blue); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px;">?</div>
+            <div style="flex:1; min-width: 0;">
+              <div id="activeName" style="font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">-</div>
+              <div id="activeStatus" style="font-size: 11px; color: var(--green);">Trực tuyến</div>
+            </div>
+          </div>
+          <div id="messages" class="messages-container"><div class="empty" style="margin: auto; text-align: center;">💬 Chọn hội thoại</div></div>
+          <div class="reply-area" id="replyArea" style="display: none;">
+            <div id="filePreviews" class="file-previews"></div>
+            <form id="manualForm">
+              <input type="hidden" name="threadId" /><input type="hidden" name="threadType" value="dm" /><input type="file" id="fileInput" multiple style="display: none;" />
+              <div class="reply-box">
+                <button type="button" class="action-btn" id="attachBtn"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"></path></svg></button>
+                <textarea name="text" id="replyTextarea" placeholder="Nhập tin nhắn..." rows="1"></textarea>
+                <button type="submit" id="btnSend" class="action-btn send"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path></svg></button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/assets/app.js"></script>
+  <script>
+    let currentThreadId = ''; let selectedFiles = [];
+    async function updateStatus() {
+      try {
+        const data = await api('/api/health'); const overlay = document.getElementById('disconnectedOverlay');
+        if (!data.zalo.connected) { overlay.style.display = 'flex'; loadQr(); }
+        else { overlay.style.display = 'none'; loadThreads(); }
+      } catch (err) { console.error(err); }
+    }
+    async function loadQr() {
+      const data = await api('/api/qr'); const container = document.getElementById('qrContainer');
+      if (data.qr?.image) container.innerHTML = `<img src="${data.qr.image}" style="width: 180px;" />`;
+    }
+    async function loadThreads() {
+      try {
+        const data = await api('/api/threads'); const wrap = document.getElementById('threads');
+        wrap.innerHTML = data.threads.filter(t => !['thread-1', 'test-thread'].includes(t.threadId)).map(t => {
+          const name = t.displayName || t.threadId;
+          const statusClass = t.needsReply ? 'needs-reply' : '';
+          const initials = name[0].toUpperCase();
+          return `<div class="thread-card ${t.threadId === currentThreadId ? 'active' : ''} ${statusClass}" onclick="selectThread('${t.threadId}', '${t.type}', '${name.replace(/'/g, "\\'")}')">
+            <div style="width: 36px; height: 36px; border-radius: 8px; background: ${t.type === 'group' ? '#1e3a8a' : '#334155'}; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: white;">${initials}</div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div class="thread-name" style="font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(name)}</div>
+                ${t.needsReply ? '<span style="width: 8px; height: 8px; background: var(--yellow); border-radius: 50%;"></span>' : ''}
+              </div>
+              <div class="type-badge">${t.type.toUpperCase()}</div>
+            </div>
+            <button class="btn-delete-thread" onclick="deleteT(event, '${t.threadId}')">Xóa</button>
+          </div>`;
+        }).join('') || '<div class="empty">Trống</div>';
+      } catch (e) {}
+    }
+    async function deleteT(e, id) {
+      e.stopPropagation(); if (!confirm(`Xóa lịch sử với ${id}?`)) return;
+      try {
+        await api(`/api/threads/${encodeURIComponent(id)}`, { method: 'DELETE' });
+        if (id === currentThreadId) { currentThreadId = ''; document.getElementById('chatHeader').style.display = 'none'; document.getElementById('replyArea').style.display = 'none'; }
+        loadThreads();
+      } catch (err) { alert('Lỗi: ' + err.message); }
+    }
+    window.selectThread = async (id, type, name) => {
+      currentThreadId = id; const displayName = name || id;
+      document.getElementById('chatHeader').style.display = 'flex'; document.getElementById('replyArea').style.display = 'block';
+      document.getElementById('activeName').textContent = displayName; document.getElementById('activeAvatar').textContent = displayName[0].toUpperCase();
+      document.querySelector('[name=threadId]').value = id; document.querySelector('[name=threadType]').value = type;
+      loadMessages(); loadThreads();
+      setTimeout(() => { const c = document.getElementById('messages'); c.scrollTop = c.scrollHeight; document.getElementById('replyTextarea').focus(); }, 100);
+    };
+    async function loadMessages() {
+      if (!currentThreadId) return;
+      try {
+        const data = await api(`/api/messages?threadId=${encodeURIComponent(currentThreadId)}`);
+        const wrap = document.getElementById('messages'); const atBottom = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight < 100;
+        wrap.innerHTML = data.messages.map(m => `<div class="msg-group ${m.direction}"><div class="bubble">${escapeHtml(m.text)}</div><div class="msg-meta">${escapeHtml(m.at)}</div></div>`).join('');
+        if (atBottom) wrap.scrollTop = wrap.scrollHeight;
+      } catch (e) {}
+    }
+    const fileInput = document.getElementById('fileInput'); const attachBtn = document.getElementById('attachBtn');
+    attachBtn.onclick = () => fileInput.click();
+    fileInput.onchange = () => { for (const f of fileInput.files) selectedFiles.push(f); renderPreviews(); };
+    function renderPreviews() { document.getElementById('filePreviews').innerHTML = selectedFiles.map((f, i) => `<div class="file-tag"><span>${escapeHtml(f.name)}</span><span class="remove" onclick="removeFile(${i})">×</span></div>`).join(''); }
+    window.removeFile = (i) => { selectedFiles.splice(i, 1); renderPreviews(); };
+    document.getElementById('manualForm').onsubmit = async (e) => {
+      e.preventDefault(); const fd = new FormData();
+      fd.append('threadId', e.target.elements.threadId.value); fd.append('threadType', e.target.elements.threadType.value);
+      fd.append('text', e.target.elements.text.value); selectedFiles.forEach(f => fd.append('files', f));
+      const btn = document.getElementById('btnSend');
+      try {
+        btn.disabled = true; const res = await fetch('/api/manual-reply', { method: 'POST', body: fd }); const data = await res.json();
+        if (!data.ok) throw new Error(data.error);
+        e.target.elements.text.value = ''; selectedFiles = []; renderPreviews(); loadMessages();
+      } catch (err) { alert('Lỗi: ' + err.message); } finally { btn.disabled = false; }
+    };
+    document.getElementById('refreshBtn').onclick = updateStatus;
+    document.getElementById('replyTextarea').oninput = function() { this.style.height = 'auto'; this.style.height = this.scrollHeight + 'px'; };
+    document.addEventListener('DOMContentLoaded', () => { updateStatus(); setInterval(() => { if (currentThreadId) { loadMessages(); loadThreads(); } else updateStatus(); }, 4000); });
+  </script>
+</body>
+</html>

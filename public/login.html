@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Đăng nhập - Zalo Bot Admin</title>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --blue: #3b82f6;
+    }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, sans-serif;
+      background: var(--bg);
+      color: #e5e7eb;
+      height: 100vh;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      position: relative;
+    }
+    /* Animated Background */
+    .bg-blobs {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: -1;
+      filter: blur(80px);
+      opacity: 0.4;
+    }
+    .blob {
+      position: absolute;
+      border-radius: 50%;
+      background: var(--blue);
+      animation: float 20s infinite alternate;
+    }
+    .blob:nth-child(1) { width: 400px; height: 400px; top: -100px; left: -100px; background: #3b82f6; }
+    .blob:nth-child(2) { width: 350px; height: 350px; bottom: -50px; right: -50px; background: #6366f1; animation-delay: -5s; }
+    .blob:nth-child(3) { width: 300px; height: 300px; top: 40%; right: 20%; background: #2dd4bf; animation-delay: -10s; }
+    
+    @keyframes float {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(100px, 50px) scale(1.1); }
+    }
+
+    .card {
+      width: min(92vw, 400px);
+      padding: 40px;
+      background: rgba(17, 24, 39, 0.7);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      text-align: center;
+    }
+    h2 { margin: 0 0 8px; font-size: 28px; font-weight: 800; letter-spacing: -0.025em; }
+    p { margin: 0 0 32px; color: #94a3b8; font-size: 15px; }
+    
+    .input-group { text-align: left; margin-bottom: 20px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #94a3b8; margin-bottom: 8px; margin-left: 4px; }
+    input {
+      width: 100%;
+      padding: 14px 16px;
+      background: rgba(11, 18, 32, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      color: white;
+      font-size: 15px;
+      transition: all 0.2s;
+      box-sizing: border-box;
+    }
+    input:focus {
+      outline: none;
+      border-color: var(--blue);
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
+      background: #0b1220;
+    }
+    
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 12px;
+      background: var(--blue);
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    button:hover { background: #2563eb; transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+    
+    .err {
+      margin-top: 20px;
+      padding: 10px;
+      border-radius: 10px;
+      background: rgba(239, 68, 68, 0.1);
+      color: #fca5a5;
+      font-size: 13px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-blobs">
+    <div class="blob"></div>
+    <div class="blob"></div>
+    <div class="blob"></div>
+  </div>
+
+  <form class="card" id="form">
+    <h2>Zalo Admin</h2>
+    <p>Quản lý bot standalone của bạn</p>
+    
+    <div class="input-group">
+      <label>TÀI KHOẢN</label>
+      <input name="username" placeholder="Nhập tên đăng nhập..." autocomplete="username" required />
+    </div>
+    
+    <div class="input-group">
+      <label>MẬT KHẨU</label>
+      <input name="password" type="password" placeholder="••••••••" autocomplete="current-password" required />
+    </div>
+    
+    <button type="submit" id="btnSubmit">Đăng nhập</button>
+    <div class="err" id="err"></div>
+  </form>
+
+  <script>
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.currentTarget);
+      const body = Object.fromEntries(fd.entries());
+      const err = document.getElementById('err');
+      const btn = document.getElementById('btnSubmit');
+      
+      try {
+        btn.disabled = true;
+        btn.textContent = 'Đang xác thực...';
+        err.style.display = 'none';
+        
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: {'content-type':'application/json'},
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        
+        if (!res.ok || !data.ok) {
+          err.textContent = data.error || 'Đăng nhập thất bại';
+          err.style.display = 'block';
+          return;
+        }
+        
+        location.href = '/dashboard';
+      } catch (e) {
+        err.textContent = 'Lỗi kết nối server';
+        err.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Đăng nhập';
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings - Zalo Bot Admin</title>
+  <link rel="stylesheet" href="/assets/app.css" />
+  <style>
+    .provider-card {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+    .provider-card.active {
+      display: block;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .provider-selector {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .provider-option {
+      cursor: pointer;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      text-align: center;
+      transition: all 0.2s;
+      background: rgba(255,255,255,0.03);
+    }
+    .provider-option:hover {
+      background: rgba(255,255,255,0.06);
+      border-color: var(--muted);
+    }
+    .provider-option.selected {
+      background: rgba(59, 130, 246, 0.1);
+      border-color: var(--blue);
+      box-shadow: inset 0 0 0 1px var(--blue);
+    }
+    .provider-option .icon {
+      font-size: 24px;
+      margin-bottom: 8px;
+      display: block;
+    }
+    .provider-option .label {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .hint-text {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+      line-height: 1.4;
+    }
+    .api-key-note {
+      background: rgba(59, 130, 246, 0.05);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      color: var(--blue);
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 13px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>Zalo Bot Admin</h1>
+        <div class="sub">Standalone Management</div>
+      </div>
+      
+      <nav class="nav-links">
+        <a href="/dashboard" class="nav-item">Dashboard</a>
+        <a href="/conversations" class="nav-item">Conversations</a>
+        <a href="/settings" class="nav-item">Settings</a>
+        <a href="/logs" class="nav-item">Logs</a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div id="zaloStatusBanner" class="badge">Checking...</div>
+        <button id="btnLogoutZalo" class="btn danger">Đăng xuất Zalo</button>
+        <button id="btnReloginZalo" class="btn secondary">Đăng nhập lại Zalo</button>
+        <div class="divider"></div>
+        <button id="btnLogoutAdmin" class="btn ghost">Thoát Admin</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h2 class="title">Cấu hình hệ thống</h2>
+          <div class="sub">Tùy chỉnh AI, Phản hồi tự động và Quy tắc nhóm</div>
+        </div>
+        <div class="status-row">
+          <span id="settingsMsg" class="badge ok" style="display:none"></span>
+        </div>
+      </div>
+
+      <form id="settingsForm">
+        <input type="hidden" name="aiBackend" id="aiBackendInput" />
+
+        <div class="grid">
+          <div class="col-12">
+            <h3 class="section-title">1. Chọn Nhà cung cấp AI (Backend)</h3>
+            <div class="provider-selector">
+              <div class="provider-option" data-value="mock">
+                <span class="icon">🚫</span>
+                <span class="label">Mock (Tắt AI)</span>
+              </div>
+              <div class="provider-option" data-value="openai">
+                <span class="icon">🤖</span>
+                <span class="label">OpenAI</span>
+              </div>
+              <div class="provider-option" data-value="openrouter">
+                <span class="icon">🌐</span>
+                <span class="label">OpenRouter</span>
+              </div>
+              <div class="provider-option" data-value="ollama">
+                <span class="icon">🦙</span>
+                <span class="label">Ollama (Local)</span>
+              </div>
+              <div class="provider-option" data-value="custom">
+                <span class="icon">⚙️</span>
+                <span class="label">Tùy chỉnh</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-5">
+            <div class="card stack" style="height: 100%;">
+              <h3 class="section-title">2. Cấu hình Backend</h3>
+              
+              <div class="api-key-note">
+                Dữ liệu API Key lưu tại đây sẽ ghi đè cấu hình trong file <code>.env</code>. Hãy giữ bí mật các khóa này.
+              </div>
+
+              <!-- Mock Settings -->
+              <div id="config-mock" class="provider-card">
+                <p class="hint-text">Chế độ Mock dùng để test giao diện hoặc khi bạn muốn bot không tự động trả lời bằng AI.</p>
+              </div>
+
+              <!-- OpenAI Settings -->
+              <div id="config-openai" class="provider-card stack">
+                <div>
+                  <label>OpenAI API Key</label>
+                  <input type="password" name="openaiApiKey" placeholder="sk-..." />
+                </div>
+                <div>
+                  <label>OpenAI Model</label>
+                  <input name="openaiModel" placeholder="gpt-4o-mini" />
+                  <p class="hint-text">Gợi ý: <code>gpt-4o-mini</code>, <code>gpt-4o</code></p>
+                </div>
+              </div>
+
+              <!-- OpenRouter Settings -->
+              <div id="config-openrouter" class="provider-card stack">
+                <div>
+                  <label>OpenRouter API Key</label>
+                  <input type="password" name="openrouterApiKey" placeholder="sk-or-..." />
+                </div>
+                <div>
+                  <label>OpenRouter Model</label>
+                  <input name="openrouterModel" placeholder="anthropic/claude-3-haiku" />
+                </div>
+              </div>
+
+              <!-- Ollama Settings -->
+              <div id="config-ollama" class="provider-card stack">
+                <div>
+                  <label>Ollama Base URL</label>
+                  <input name="ollamaBaseUrl" placeholder="http://localhost:11434" />
+                </div>
+                <div>
+                  <label>Ollama Model</label>
+                  <input name="ollamaModel" placeholder="llama3.1" />
+                </div>
+              </div>
+
+              <!-- Custom Settings -->
+              <div id="config-custom" class="provider-card stack">
+                <div>
+                  <label>Custom Base URL</label>
+                  <input name="customAiBaseUrl" placeholder="https://..." />
+                </div>
+                <div>
+                  <label>Custom API Key</label>
+                  <input type="password" name="customAiApiKey" />
+                </div>
+                <div>
+                  <label>Model Name</label>
+                  <input name="customAiModel" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-7">
+            <div class="card stack">
+              <h3 class="section-title">3. Nội dung & Quy tắc</h3>
+              
+              <div>
+                <label>System Prompt (Chỉ dẫn AI)</label>
+                <textarea name="systemPrompt" rows="8" placeholder="Bạn là trợ lý ảo..."></textarea>
+              </div>
+
+              <div class="form-grid">
+                <div>
+                  <label>Câu chào đầu</label>
+                  <input name="zaloFirstGreeting" />
+                </div>
+                <div>
+                  <label>Gợi ý mô tả</label>
+                  <input name="zaloIntroHint" />
+                </div>
+              </div>
+
+              <div class="divider"></div>
+
+              <label class="check">
+                <input type="checkbox" name="zaloGroupRequireMention" />
+                <span><strong>Yêu cầu Mention (@bot)</strong> trong Group mới trả lời</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="col-12" style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 16px;">
+            <button type="button" class="btn ghost" id="reloadBtn">Hủy thay đổi</button>
+            <button type="submit" class="btn" style="padding: 12px 32px; font-size: 16px;">Lưu cấu hình</button>
+          </div>
+        </div>
+      </form>
+    </main>
+  </div>
+
+  <script src="/assets/app.js"></script>
+  <script>
+    const form = document.getElementById('settingsForm');
+    const backendInput = document.getElementById('aiBackendInput');
+    const providerOptions = document.querySelectorAll('.provider-option');
+    const providerCards = document.querySelectorAll('.provider-card');
+
+    function selectBackend(value) {
+      backendInput.value = value;
+      providerOptions.forEach(opt => opt.classList.toggle('selected', opt.dataset.value === value));
+      providerCards.forEach(card => card.classList.toggle('active', card.id === `config-${value}`));
+    }
+
+    providerOptions.forEach(opt => {
+      opt.addEventListener('click', () => selectBackend(opt.dataset.value));
+    });
+
+    async function loadSettings() {
+      try {
+        const data = await api('/api/settings');
+        const s = data.settings;
+        selectBackend(s.aiBackend || 'mock');
+        for (const [k, v] of Object.entries(s)) {
+          const el = form.elements[k];
+          if (!el) continue;
+          if (el.type === 'checkbox') el.checked = !!v;
+          else el.value = v ?? '';
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const body = Object.fromEntries(fd.entries());
+      body.zaloGroupRequireMention = form.elements.zaloGroupRequireMention.checked;
+      
+      const msg = document.getElementById('settingsMsg');
+      try {
+        await api('/api/settings', { method: 'POST', body: JSON.stringify(body) });
+        msg.textContent = 'Đã lưu cấu hình thành công!';
+        msg.style.display = 'inline-flex';
+        setTimeout(() => msg.style.display = 'none', 3000);
+      } catch (err) { alert('Lỗi: ' + err.message); }
+    });
+
+    document.getElementById('reloadBtn').onclick = loadSettings;
+    document.addEventListener('DOMContentLoaded', loadSettings);
+  </script>
+</body>
+</html>

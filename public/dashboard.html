@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard - Zalo Bot Admin</title>
+  <link rel="stylesheet" href="/assets/app.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>Zalo Bot Admin</h1>
+        <div class="sub">Standalone Management</div>
+      </div>
+      
+      <nav class="nav-links">
+        <a href="/dashboard" class="nav-item">Dashboard</a>
+        <a href="/conversations" class="nav-item">Conversations</a>
+        <a href="/settings" class="nav-item">Settings</a>
+        <a href="/logs" class="nav-item">Logs</a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div id="zaloStatusBanner" class="badge">Checking...</div>
+        <button id="btnLogoutZalo" class="btn danger" title="Xóa session Zalo và đăng nhập lại từ đầu">Đăng xuất Zalo</button>
+        <button id="btnReloginZalo" class="btn secondary" title="Thử kết nối lại Zalo">Đăng nhập lại Zalo</button>
+        <div class="divider"></div>
+        <button id="btnLogoutAdmin" class="btn ghost">Thoát Admin</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h2 class="title">Dashboard</h2>
+          <div class="sub">Tổng quan hệ thống, trạng thái Zalo và runtime</div>
+        </div>
+        <button class="btn secondary" id="refreshBtn">Làm mới dữ liệu</button>
+      </div>
+
+      <div class="grid" style="margin-bottom:24px">
+        <div class="metric col-4">
+          <div class="k">Login Status</div>
+          <div class="v" id="metricLogin">-</div>
+          <div class="h" id="metricLoginHint">Đang chờ dữ liệu</div>
+        </div>
+        <div class="metric col-4">
+          <div class="k">Store Backend</div>
+          <div class="v" id="metricStore">-</div>
+          <div class="h" id="metricStoreHint">-</div>
+        </div>
+        <div class="metric col-4">
+          <div class="k">Node Runtime</div>
+          <div class="v" id="metricNode">-</div>
+          <div class="h" id="metricNodeHint">-</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <section class="card col-5">
+          <div class="section-head">
+            <h3 class="section-title" style="margin:0">QR / Session</h3>
+            <span class="helper">Quét QR khi dùng ZALO_TRANSPORT=real</span>
+          </div>
+          <div id="qrBox" class="empty">Đang tải QR...</div>
+        </section>
+
+        <section class="card col-7">
+          <div class="section-head">
+            <h3 class="section-title" style="margin:0">Health Overview</h3>
+            <span class="helper">Chi tiết runtime & môi trường</span>
+          </div>
+          <pre id="health" class="raw muted">Đang tải...</pre>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="/assets/app.js"></script>
+  <script>
+    async function loadHealth() {
+      try {
+        const data = await api('/api/health');
+        document.getElementById('health').textContent = JSON.stringify(data, null, 2);
+        
+        const loginEl = document.getElementById('metricLogin');
+        loginEl.textContent = data.zalo.loginStatus || 'unknown';
+        loginEl.style.color = `var(--${niceStatusClass(data.zalo.loginStatus)})`;
+        
+        document.getElementById('metricLoginHint').textContent = data.zalo.loginError || (data.zalo.account?.displayName || 'Chưa có account');
+        document.getElementById('metricStore').textContent = data.store.backend || '-';
+        document.getElementById('metricStoreHint').textContent = `${data.store.messageCount || 0} messages`;
+        document.getElementById('metricNode').textContent = data.runtime.nodeVersion || '-';
+        document.getElementById('metricNodeHint').textContent = data.runtime.recommendedNode === 'ok' ? 'Node version ổn' : 'Khuyên dùng Node 22 LTS';
+      } catch (err) {
+        console.error('Failed to load health', err);
+      }
+    }
+
+    async function loadQr() {
+      try {
+        const data = await api('/api/qr');
+        const qr = data.qr;
+        const box = document.getElementById('qrBox');
+        if (!qr) {
+          box.className = 'empty';
+          box.innerHTML = 'Chưa có dữ liệu QR/Session';
+          return;
+        }
+
+        const statusClass = niceStatusClass(qr.type);
+        box.className = '';
+        box.innerHTML = `
+          <div class="stack">
+            <div>
+              ${qr.image ? `<img class="qr" src="${qr.image}" alt="QR" />` : `<div class="empty">Không có ảnh QR</div>`}
+            </div>
+            <div class="stack">
+              <div class="status-row">
+                <span class="badge ${statusClass}">${escapeHtml(qr.type || 'unknown')}</span>
+                <span class="badge secondary">${escapeHtml(qr.at || '')}</span>
+              </div>
+              <div class="helper">Nếu dùng <code>ZALO_TRANSPORT=real</code>, hãy quét mã này bằng ứng dụng Zalo trên điện thoại.</div>
+              ${qr.user ? `<div><strong>User:</strong> ${escapeHtml(qr.user)}</div>` : ''}
+              ${qr.code ? `<pre class="raw muted" style="font-size:11px">${escapeHtml(qr.code)}</pre>` : ''}
+            </div>
+          </div>
+        `;
+      } catch (err) {
+        console.error('Failed to load QR', err);
+      }
+    }
+
+    function refreshAll() {
+      loadHealth();
+      loadQr();
+    }
+
+    document.getElementById('refreshBtn').onclick = refreshAll;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      refreshAll();
+      setInterval(refreshAll, 5000);
+    });
+  </script>
+</body>
+</html>

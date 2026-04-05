@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Logs - Zalo Bot Admin</title>
+  <link rel="stylesheet" href="/assets/app.css" />
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>Zalo Bot Admin</h1>
+        <div class="sub">Standalone Management</div>
+      </div>
+      
+      <nav class="nav-links">
+        <a href="/dashboard" class="nav-item">Dashboard</a>
+        <a href="/conversations" class="nav-item">Conversations</a>
+        <a href="/settings" class="nav-item">Settings</a>
+        <a href="/logs" class="nav-item">Logs</a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div id="zaloStatusBanner" class="badge">Checking...</div>
+        <button id="btnLogoutZalo" class="btn danger">Đăng xuất Zalo</button>
+        <button id="btnReloginZalo" class="btn secondary">Đăng nhập lại Zalo</button>
+        <div class="divider"></div>
+        <button id="btnLogoutAdmin" class="btn ghost">Thoát Admin</button>
+      </div>
+    </aside>
+
+    <main class="main" style="display: flex; flex-direction: column; height: 100vh;">
+      <div class="topbar">
+        <div>
+          <h2 class="title">Logs</h2>
+          <div class="sub">Theo dõi hoạt động của bot thời gian thực</div>
+        </div>
+        <div class="toolbar">
+          <label class="check" style="margin-right: 12px;">
+            <input type="checkbox" id="autoScroll" checked /> Tự động cuộn
+          </label>
+          <button class="btn secondary" id="clearBtn">Clear View</button>
+          <button class="btn secondary" id="refreshBtn">Refresh</button>
+        </div>
+      </div>
+
+      <section class="card col-12" style="flex: 1; min-height: 0; display: flex; flex-direction: column;">
+        <pre id="logs" class="logbox" style="flex: 1; margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 12px;"></pre>
+      </section>
+    </main>
+  </div>
+
+  <script src="/assets/app.js"></script>
+  <script>
+    async function loadLogs() {
+      try {
+        const data = await api('/api/logs');
+        const box = document.getElementById('logs');
+        const autoScroll = document.getElementById('autoScroll').checked;
+        
+        box.textContent = data.logs
+          .map(x => `[${x.at}] ${x.level.toUpperCase()} ${x.message}${x.meta ? ' ' + JSON.stringify(x.meta) : ''}`)
+          .join('\n');
+          
+        if (autoScroll) {
+          box.scrollTop = box.scrollHeight;
+        }
+      } catch (err) { console.error(err); }
+    }
+
+    document.getElementById('refreshBtn').onclick = loadLogs;
+    document.getElementById('clearBtn').onclick = () => {
+      document.getElementById('logs').textContent = '';
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadLogs();
+      setInterval(loadLogs, 3000);
+    });
+  </script>
+</body>
+</html>
