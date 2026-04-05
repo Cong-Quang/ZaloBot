@@ -122,10 +122,11 @@
     async function loadThreads() {
       try {
         const data = await api('/api/threads'); const wrap = document.getElementById('threads');
+        if (!data.threads) return;
         wrap.innerHTML = data.threads.filter(t => !['thread-1', 'test-thread'].includes(t.threadId)).map(t => {
-          const name = t.displayName || t.threadId;
+          const name = t.displayName || t.senderName || t.groupName || t.threadId;
           const statusClass = t.needsReply ? 'needs-reply' : '';
-          const initials = name[0].toUpperCase();
+          const initials = (name && name[0] ? name[0] : '?').toUpperCase();
           return `<div class="thread-card ${t.threadId === currentThreadId ? 'active' : ''} ${statusClass}" onclick="selectThread('${t.threadId}', '${t.type}', '${name.replace(/'/g, "\\'")}')">
             <div style="width: 36px; height: 36px; border-radius: 8px; background: ${t.type === 'group' ? '#1e3a8a' : '#334155'}; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: white;">${initials}</div>
             <div style="flex: 1; min-width: 0;">
@@ -138,7 +139,7 @@
             <button class="btn-delete-thread" onclick="deleteT(event, '${t.threadId}')">Xóa</button>
           </div>`;
         }).join('') || '<div class="empty">Trống</div>';
-      } catch (e) {}
+      } catch (e) { console.error('Thread load error:', e); }
     }
     async function deleteT(e, id) {
       e.stopPropagation(); if (!confirm(`Xóa lịch sử với ${id}?`)) return;

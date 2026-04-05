@@ -102,6 +102,18 @@ class SqliteMessageStore {
       CREATE INDEX IF NOT EXISTS idx_messages_thread_at ON messages(thread_id, at DESC);
       CREATE INDEX IF NOT EXISTS idx_messages_at ON messages(at DESC);
     `);
+
+    // Tự động nâng cấp bảng nếu thiếu cột group_name
+    try {
+      const tableInfo = this.db.prepare("PRAGMA table_info(messages)").all();
+      const hasGroupName = tableInfo.some(col => col.name === 'group_name');
+      if (!hasGroupName) {
+        logger.info('Migrating database: Adding group_name column');
+        this.db.exec("ALTER TABLE messages ADD COLUMN group_name TEXT");
+      }
+    } catch (e) {
+      logger.error({ err: e }, 'Failed to migrate database columns');
+    }
   }
 
   async saveMessage(message) {
@@ -110,16 +122,16 @@ class SqliteMessageStore {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     stmt.run(
-      message.id,
-      message.threadId,
-      message.threadType,
-      message.direction,
-      message.senderId,
-      message.senderName,
-      message.groupName,
-      message.text,
+      message.id || null,
+      message.threadId || null,
+      message.threadType || null,
+      message.direction || null,
+      message.senderId ?? null,
+      message.senderName ?? null,
+      message.groupName ?? null,
+      message.text || '',
       JSON.stringify(message.raw || null),
-      message.at,
+      message.at || new Date().toISOString(),
     );
   }
 
@@ -154,7 +166,7 @@ class SqliteMessageStore {
   listMessages(threadId, limit = 100) {
     if (threadId) {
       const stmt = this.db.prepare(`
-        SELECT id, thread_id as threadId, thread_type as threadType, direction, sender_id as senderId, sender_name as senderName, text, at
+        SELECT id, thread_id as threadId, thread_type as threadType, direction, sender_id as senderId, sender_name as senderName, group_name as groupName, text, at
         FROM messages
         WHERE thread_id = ?
         ORDER BY at DESC
@@ -164,7 +176,7 @@ class SqliteMessageStore {
     }
 
     const stmt = this.db.prepare(`
-      SELECT id, thread_id as threadId, thread_type as threadType, direction, sender_id as senderId, sender_name as senderName, text, at
+      SELECT id, thread_id as threadId, thread_type as threadType, direction, sender_id as senderId, sender_name as senderName, group_name as groupName, text, at
       FROM messages
       ORDER BY at DESC
       LIMIT ?

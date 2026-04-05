@@ -14,7 +14,7 @@ const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 }, // 20MB limit
 });
 
-export function createHttpServer({ state, conversations, simulateMessage, messageStore, getSettings, updateSettings, qrState, manualReply, resolveName, logBuffer, disconnectZalo, reconnectZalo }) {
+export function createHttpServer({ state, conversations, simulateMessage, messageStore, getSettings, updateSettings, qrState, manualReply, resolveName, resolveGroupName, logBuffer, disconnectZalo, reconnectZalo }) {
   const app = express();
   const sessions = new Map();
 
@@ -158,14 +158,30 @@ export function createHttpServer({ state, conversations, simulateMessage, messag
   app.get('/api/threads', async (_req, res) => {
     const threads = messageStore.listThreads(200);
     
-    // Enrich threads with names if missing (only for DMs)
-    if (resolveName) {
-      for (const t of threads) {
-        if (!t.senderName && t.type === 'dm') {
-          const name = await resolveName(t.threadId);
-          if (name) t.senderName = name;
+    // Enrich threads with names if missing
+    for (const t of threads) {
+      if (!t.senderName && t.type === 'dm' && resolveName) {
+        const name = await resolveName(t.threadId);
+        if (name) t.senderName = name;
+      }
+      if (!t.groupName && t.type === 'group' && resolveGroupName) {
+        const name = await resolveGroupName(t.threadId);
+        if (name) {
+          t.groupName = name;
+          // Lưu ngược lại DB để lần sau không cần resolve nữa
+          try {
+            const lastMsg = messageStore.listMessages(t.threadId, 1)[0];
+            if (lastMsg) {
+              await messageStore.saveMessage({
+                ...lastMsg,
+                groupName: name,
+                id: `fix-${t.threadId}` // ID đặc biệt để update
+              });
+            }
+          } catch(e) {}
         }
       }
+      t.displayName = t.type === 'group' ? (t.groupName || t.threadId) : (t.senderName || t.threadId);
     }
     
     res.json({ ok: true, threads });

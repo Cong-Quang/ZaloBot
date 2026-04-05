@@ -15,6 +15,16 @@ import { clearQrPayload, clearSession } from './session-store.js';
 
 ensureRuntimeDirs();
 
+// Force UTF-8 for Windows Terminal
+if (process.platform === 'win32') {
+  try {
+    const { execSync } = await import('node:child_process');
+    execSync('chcp 65001');
+  } catch (e) {
+    // Ignore error if fails
+  }
+}
+
 const state = {
   connected: false,
   ownId: null,
@@ -217,6 +227,18 @@ async function main() {
         const info = await runtime.api.getUserInfo(uid);
         return info?.displayName || null;
       } catch (err) {
+        return null;
+      }
+    },
+    resolveGroupName: async (groupId) => {
+      if (!runtime.api) return null;
+      try {
+        const response = await runtime.api.getGroupInfo(groupId);
+        // Cấu trúc của zca-js: response.gridInfoMap[groupId].name
+        const groupInfo = response?.gridInfoMap?.[groupId];
+        return groupInfo?.name || null;
+      } catch (err) {
+        logger.debug({ err, groupId }, 'Failed to resolve group name from API');
         return null;
       }
     },
