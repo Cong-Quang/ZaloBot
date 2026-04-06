@@ -15,4 +15,4 @@ echo "[3/3] Removing environment file..."
 rm -f .env
 
 echo "[OK] Local files and data removed."
-echo "Note: If you installed via 'npm install -g', run 'npm uninstall -g zalo-standalone-bot' to remove the command."
+echo "Note: If you installed via 'npm install -g', run 'npm uninstall -g zalo-bot-free' to remove the command."

@@ -1,20 +1,20 @@
-# 🤖 Zalo Standalone Bot
+# 🤖 Zalo Bot Free
 
-[![npm version](https://img.shields.io/npm/v/zalo-standalone-bot.svg)](https://www.npmjs.com/package/zalo-standalone-bot)
+[![npm version](https://img.shields.io/npm/v/zalo-bot-free.svg)](https://www.npmjs.com/package/zalo-bot-free)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Zalo Standalone Bot** là một bot Zalo cá nhân chạy độc lập, hỗ trợ AI (OpenAI, Ollama, OpenRouter...) với giao diện Admin Dashboard hiện đại để quản lý tin nhắn và cấu hình.
+**Zalo Bot Free** là một giải pháp bot Zalo cá nhân chạy độc lập, tích hợp AI mạnh mẽ (OpenAI, Ollama, OpenRouter...) đi kèm với giao diện Admin Dashboard hiện đại, giúp bạn quản lý tin nhắn và cấu hình một cách chuyên nghiệp.
 
 ---
 
 ## ✨ Tính năng nổi bật
 
-- 🔑 **Đăng nhập QR:** Quét mã QR trực tiếp từ Terminal hoặc Dashboard.
-- 💾 **Session Persistent:** Tự động lưu và khôi phục phiên đăng nhập.
-- 🧠 **AI Multi-Backend:** Hỗ trợ OpenAI, OpenRouter, Ollama (Local AI) và Custom OpenAI-compatible API.
-- 📊 **Admin Dashboard:** Giao diện web quản lý cấu hình, xem lịch sử tin nhắn, gửi tin nhắn thủ công.
-- 🗄️ **Database:** Sử dụng SQLite (ưu tiên) hoặc JSON để lưu trữ tin nhắn.
-- 🛠️ **CLI Ready:** Chạy trực tiếp qua lệnh terminal sau khi cài đặt.
+- 🔑 **Đăng nhập thông minh:** Quét mã QR linh hoạt từ Terminal hoặc Dashboard.
+- 💾 **Duy trì phiên (Persistent):** Tự động lưu và khôi phục phiên đăng nhập, hạn chế quét lại QR.
+- 🧠 **Đa nền tảng AI:** Hỗ trợ OpenAI, OpenRouter, Ollama (Local AI) và các API tương thích OpenAI.
+- 📊 **Dashboard Toàn diện:** Giao diện Web trực quan để quản lý cấu hình, theo dõi lịch sử và gửi tin nhắn trực tiếp.
+- 🗄️ **Lưu trữ tối ưu:** Sử dụng SQLite để đảm bảo hiệu năng và tính toàn vẹn dữ liệu.
+- 🛠️ **CLI Ready:** Triển khai nhanh chóng chỉ với một lệnh duy nhất.
 
 ---
 
@@ -24,17 +24,17 @@
 - [⚙️ Cấu hình AI](#️-cấu-hình-ai)
 - [🆙 Cập nhật (Upgrade)](#-cập-nhật-upgrade)
 - [🗑️ Gỡ bỏ (Uninstall)](#️-gỡ-bỏ-uninstall)
-- [⚠️ Lưu ý bảo mật](#️-lưu-ý-bảo-mật-và-bản-quyền)
+- [⚠️ Lưu ý quan trọng](#️-lưu-ý-quan-trọng)
 
 ---
 
 ## 🚀 Cài đặt nhanh (Khuyên dùng)
 
-Nếu bạn chỉ muốn sử dụng bot ngay lập tức:
+Dành cho người dùng muốn sử dụng ngay lập tức:
 
 1. **Cài đặt toàn cục:**
    ```bash
-   npm install -g zalo-standalone-bot
+   npm install -g zalo-bot-free
    ```
 
 2. **Khởi chạy:**
@@ -44,67 +44,60 @@ Nếu bạn chỉ muốn sử dụng bot ngay lập tức:
 
 3. **Truy cập Dashboard:**
    Mở trình duyệt: `http://localhost:8787`
-   - Tài khoản mặc định: `admin`
-   - Mật khẩu mặc định: `admin123`
+   - **Tài khoản:** `admin`
+   - **Mật khẩu:** `admin123`
 
 ---
 
 ## 🛠️ Cài đặt từ mã nguồn (Dành cho Developer)
 
-Nếu bạn muốn tùy chỉnh mã nguồn và đóng góp cho dự án:
+Dành cho các nhà phát triển muốn tùy chỉnh hoặc đóng góp:
 
 1. **Clone repository:**
    ```bash
-   git clone https://github.com/your-username/zalo-standalone-bot.git
-   cd zalo-standalone-bot
+   git clone https://github.com/your-username/zalo-bot-free.git
+   cd zalo-bot-free
    ```
 
-2. **Cài đặt thư viện:**
+2. **Cài đặt dependencies:**
    ```bash
    npm install
    ```
 
 3. **Cấu hình môi trường:**
-   Sao chép tệp mẫu và chỉnh sửa:
    ```bash
    cp .env.example .env
    ```
 
-4. **Chạy bot:**
-   ```bash
-   # Windows
-   run.bat
-   
-   # Linux/macOS
-   ./run.sh
-   ```
+4. **Khởi động ứng dụng:**
+   - **Windows:** `run.bat`
+   - **Linux/macOS:** `./run.sh`
 
 ---
 
 ## ⚙️ Cấu hình AI
 
-Bạn có thể chỉnh sửa trực tiếp trong Dashboard hoặc tệp `.env`:
+Cấu hình trực tiếp qua Dashboard hoặc chỉnh sửa tệp `.env`:
 
-| Backend | Biến môi trường cần thiết |
+| Backend | Biến môi trường quan trọng |
 | :--- | :--- |
-| **OpenAI** | `AI_BACKEND=openai`, `OPENAI_API_KEY=...` |
-| **OpenRouter** | `AI_BACKEND=openrouter`, `OPENROUTER_API_KEY=...` |
+| **OpenAI** | `AI_BACKEND=openai`, `OPENAI_API_KEY=your_key` |
+| **OpenRouter** | `AI_BACKEND=openrouter`, `OPENROUTER_API_KEY=your_key` |
 | **Ollama** | `AI_BACKEND=ollama`, `OLLAMA_BASE_URL=http://localhost:11434` |
-| **Custom** | `AI_BACKEND=custom`, `CUSTOM_AI_BASE_URL=...` |
+| **Custom** | `AI_BACKEND=custom`, `CUSTOM_AI_BASE_URL=your_url` |
 
 ---
 
 ## 🆙 Cập nhật (Upgrade)
 
-Khi có phiên bản mới được phát hành trên npm, bạn có thể dễ dàng nâng cấp bằng các lệnh sau:
+Luôn cập nhật phiên bản mới nhất để nhận các tính năng và bản sửa lỗi:
 
-### Nếu cài qua NPM (Global):
+### Qua NPM (Global):
 ```bash
-# Kiểm tra bản mới và nâng cấp
-npm install -g zalo-standalone-bot@latest
+npm install -g zalo-bot-free@latest
 ```
 
-### Nếu cài từ mã nguồn (GitHub):
+### Qua GitHub:
 ```bash
 git pull origin main
 npm install
@@ -114,24 +107,24 @@ npm install
 
 ## 🗑️ Gỡ bỏ (Uninstall)
 
-### Nếu cài qua NPM:
+### Qua NPM:
 ```bash
-npm uninstall -g zalo-standalone-bot
+npm uninstall -g zalo-bot-free
 ```
 
-### Nếu cài từ mã nguồn:
-- **Windows:** Chạy tệp `uninstall.bat`.
-- **Linux/macOS:** Chạy lệnh `./uninstall.sh`.
+### Qua mã nguồn:
+- **Windows:** Chạy `uninstall.bat`.
+- **Linux/macOS:** Thực thi `./uninstall.sh`.
 
 ---
 
-## ⚠️ Lưu ý bảo mật và bản quyền
+## ⚠️ Lưu ý quan trọng
 
-- Dự án sử dụng `zca-js` (Unofficial API). Có rủi ro bị khóa tài khoản Zalo nếu lạm dụng hoặc vi phạm chính sách của Zalo.
-- Tuyệt đối **không chia sẻ tệp `storage/`** hoặc `.env` chứa API Key cho người khác.
+- **Bảo mật:** Không chia sẻ tệp `storage/` hoặc `.env` chứa API Key.
+- **Rủi ro:** Dự án sử dụng API không chính thức (`zca-js`). Việc lạm dụng có thể dẫn đến khóa tài khoản Zalo. Hãy sử dụng có trách nhiệm.
 
 ---
 
 ## 📄 Giấy phép
 
-Dự án được phát hành dưới giấy phép [MIT](LICENSE).
+Phát hành dưới giấy phép [MIT](LICENSE).

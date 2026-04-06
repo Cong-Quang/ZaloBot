@@ -1,6 +1,6 @@
 {
   "name": "zalo-bot-free",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Zalo Standalone Bot with AI capabilities- bot zalo free",
   "main": "src/index.js",
   "bin": {
