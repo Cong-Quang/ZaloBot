@@ -90,14 +90,17 @@ Cấu hình trực tiếp qua Dashboard hoặc chỉnh sửa tệp `.env`:
 
 ## 🆙 Cập nhật (Upgrade)
 
-Luôn cập nhật phiên bản mới nhất để nhận các tính năng và bản sửa lỗi:
+Dự án có tích hợp hệ thống thông báo tự động. Mỗi khi có phiên bản mới được publish lên NPM, bot sẽ hiển thị thông báo nhắc nhở ngay trong Terminal khi bạn khởi chạy.
 
-### Qua NPM (Global):
+Để thực hiện nâng cấp, bạn chỉ cần chạy lệnh tương ứng:
+
+### Nếu cài qua NPM (Global):
 ```bash
+# Lệnh này sẽ tải bản mới nhất về và cài đặt đè lên bản cũ
 npm install -g zalo-bot-free@latest
 ```
 
-### Qua GitHub:
+### Nếu cài từ mã nguồn (GitHub):
 ```bash
 git pull origin main
 npm install
