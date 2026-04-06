@@ -1,8 +1,11 @@
 {
-  "name": "zalo-standalone-bot",
-  "version": "0.1.0",
-  "description": "",
-  "main": "index.js",
+  "name": "zalo-bot-free",
+  "version": "1.0.0",
+  "description": "Zalo Standalone Bot with AI capabilities- bot zalo free",
+  "main": "src/index.js",
+  "bin": {
+    "zalo_bot": "src/index.js"
+  },
   "scripts": {
     "test": "node --test",
     "start": "node src/index.js",
@@ -10,11 +13,17 @@
     "check:session": "node -e \"import('./src/session-store.js').then(async s=>{const data=await s.loadSession(); console.log(JSON.stringify({hasSession:!!data, imei:!!data?.imei, userAgent:!!data?.userAgent, language:data?.language||null, cookieCount:data?.cookie?.length||0, savedAt:data?.savedAt||null}, null, 2));})\"",
     "lint": "node -e \"console.log(`no lint configured`)\""
   },
-  "keywords": [],
+  "keywords": [
+    "zalo",
+    "bot",
+    "ai",
+    "automation",
+    "bot zalo free"
+  ],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "type": "module",
-  "private": "true",
+  "private": false,
   "dependencies": {
     "cookie": "^1.1.1",
     "dotenv": "^17.4.0",
@@ -24,6 +33,7 @@
     "pino": "^10.3.1",
     "pino-pretty": "^13.1.3",
     "qrcode-terminal": "^0.12.0",
+    "update-notifier": "^7.3.1",
     "zca-js": "^2.1.2",
     "zod": "^4.3.6"
   }

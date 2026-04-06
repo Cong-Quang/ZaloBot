@@ -1,3 +1,6 @@
+#!/usr/bin/env node
+import updateNotifier from 'update-notifier';
+import fs from 'node:fs';
 import { createAiBackend } from './ai/index.js';
 import { ConversationStore } from './conversation-store.js';
 import { appConfig, ensureRuntimeDirs } from './config.js';
@@ -12,6 +15,10 @@ import { loadSettings, saveSettings } from './settings-store.js';
 import { buildSimulatedMessage } from './simulate.js';
 import { connectZalo } from './zalo-client.js';
 import { clearQrPayload, clearSession } from './session-store.js';
+
+// Check for updates
+const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url)));
+updateNotifier({ pkg }).notify();
 
 ensureRuntimeDirs();
 

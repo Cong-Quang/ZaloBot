@@ -1,0 +1,10 @@
+# Tệp tin bị bỏ qua khi đưa lên npm
+node_modules/
+.env
+storage/
+.git/
+New Text Document.txt
+test/
+run.bat
+run.sh
+test.py
