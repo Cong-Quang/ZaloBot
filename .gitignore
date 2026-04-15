@@ -1,6 +1,44 @@
+```
+# Dependencies
 node_modules/
+
+# Environment
 .env
 .env.local
-storage/
-coverage/
+.env.*
+
+# Logs and temp files
 *.log
+*.tmp
+
+# Editors
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+env/
+ENV/
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+
+# Testing
+.coverage
+htmlcov/
+.coverage.*
+.nyc_output/
+coverage-final.json
+
+# OS generated files
+.DS_Store
+Thumbs.db
+```
