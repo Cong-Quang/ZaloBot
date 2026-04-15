@@ -97,6 +97,7 @@ export const appConfig = {
   groupAllowlist: parseCsvList(raw.ZALO_GROUP_ALLOWLIST),
   groupBlocklist: parseCsvList(raw.ZALO_GROUP_BLOCKLIST),
   publicDir: path.resolve(rootDir, 'public'),
+  dataDir: path.resolve(rootDir, 'storage'),
 };
 
 export function ensureRuntimeDirs() {

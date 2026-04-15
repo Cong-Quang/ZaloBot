@@ -1,6 +1,91 @@
 import { logger } from './logger.js';
 import { extractTextContent, isThreadAllowed, shouldReplyInGroup, shouldSendFirstGreeting } from './policies.js';
 import { makeMessageRecord } from './message-store.js';
+import axios from 'axios';
+
+async function extractImageUrls(message) {
+  const urls = [];
+  
+  // Zalo gửi ảnh qua data.attachments hoặc data.photo
+  const attachments = message?.data?.attachments || [];
+  const photoUrl = message?.data?.photo;
+  
+  for (const att of attachments) {
+    if (att.type === 'photo' || att.type === 'image') {
+      if (att.url) urls.push(att.url);
+      if (att.originalUrl) urls.push(att.originalUrl);
+    }
+  }
+  
+  if (photoUrl) {
+    urls.push(photoUrl);
+  }
+  
+  return [...new Set(urls)]; // Loại bỏ trùng lặp
+}
+
+async function downloadImageAsBase64(url) {
+  try {
+    const response = await axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: 10000,
+    });
+    const base64 = Buffer.from(response.data).toString('base64');
+    return `data:image/jpeg;base64,${base64}`;
+  } catch (error) {
+    logger.warn({ err: error, url }, 'Failed to download image');
+    return null;
+  }
+}
+
+async function extractTextFromImages(imageUrls, aiBackend, settings) {
+  if (imageUrls.length === 0) return '';
+  
+  logger.info({ count: imageUrls.length }, 'Extracting text from images');
+  
+  const imageContents = [];
+  for (const url of imageUrls) {
+    const base64 = await downloadImageAsBase64(url);
+    if (base64) {
+      imageContents.push(base64);
+    }
+  }
+  
+  if (imageContents.length === 0) return '';
+  
+  try {
+    let model = settings.openaiModel;
+    if (settings.aiBackend === 'openrouter') model = settings.openrouterModel;
+    if (settings.aiBackend === 'ollama') model = settings.ollamaModel;
+    if (settings.aiBackend === 'custom') model = settings.customAiModel;
+    
+    const userContent = [
+      { type: 'text', text: 'Hãy đọc và trích xuất toàn bộ văn bản có trong hình ảnh này. Chỉ trả về nội dung văn bản, không thêm giải thích.' }
+    ];
+    
+    for (const base64 of imageContents) {
+      userContent.push({ type: 'image_url', image_url: { url: base64 } });
+    }
+    
+    const response = await aiBackend.client.chat.completions.create({
+      model: model || 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'user',
+          content: userContent
+        }
+      ],
+      max_tokens: 2000,
+    });
+    
+    const extractedText = response.choices[0]?.message?.content || '';
+    logger.info({ extractedText: extractedText.substring(0, 100) }, 'Successfully extracted text from images');
+    return extractedText;
+  } catch (error) {
+    logger.error({ err: error }, 'Failed to extract text from images');
+    return '';
+  }
+}
 
 function cleanMarkdown(text) {
   return text
@@ -28,12 +113,24 @@ export class MessageHandler {
     const settings = await this.getSettings();
     const text = extractTextContent(message);
     
-    if (message.isSelf || !text) return { skipped: 'self_or_empty' };
+    // Kiểm tra nếu có ảnh gửi đến
+    const imageUrls = await extractImageUrls(message);
+    let imageText = '';
+    
+    if (imageUrls.length > 0) {
+      imageText = await extractTextFromImages(imageUrls, this.createAiBackend(settings), settings);
+    }
+    
+    // Nếu chỉ có ảnh không có text thì vẫn xử lý
+    if (message.isSelf && !text && imageText === '') return { skipped: 'self_or_empty' };
     if (!isThreadAllowed(message)) return { skipped: 'policy_blocked' };
 
     const threadType = message.type === 1 ? 'group' : 'dm';
     const senderName = message.data.dName || message.data.displayName || null;
     const groupName = threadType === 'group' ? (message.data.gName || message.data.groupName || null) : null;
+
+    // Kết hợp text từ tin nhắn và text trích xuất từ ảnh
+    const combinedText = imageText ? (text ? `${text}\n\n[Văn bản từ hình ảnh]:\n${imageText}` : `[Văn bản từ hình ảnh]:\n${imageText}`) : text;
 
     // 1. Lưu vào SQLite
     await this.messageStore.saveMessage(
@@ -45,13 +142,13 @@ export class MessageHandler {
         senderId: message.data.uidFrom || null,
         senderName: senderName,
         groupName: groupName,
-        text,
+        text: combinedText,
         raw: message,
       }),
     );
 
     // 2. Lưu vào bộ nhớ (Có tên)
-    this.conversations.appendUserMessage(message.threadId, text, senderName);
+    this.conversations.appendUserMessage(message.threadId, combinedText, senderName);
 
     // 3. Kiểm tra tag tên (@Mention)
     if (!shouldReplyInGroup(message, this.ownId, settings)) {
@@ -91,7 +188,7 @@ QUY TẮC PHẢN HỒI:
 - Nếu không có đủ thông tin để tóm tắt, hãy lịch sự yêu cầu thêm thông tin.`;
 
     let aiReply = await aiBackend.generateReply({
-      text,
+      text: combinedText,
       memory: this.conversations.get(message.threadId),
       threadType,
       settings: {

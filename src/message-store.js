@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
-import { DatabaseSync } from 'node:sqlite';
+import path from 'node:path';
 import { appConfig } from './config.js';
 import { logger } from './logger.js';
 
@@ -9,6 +9,11 @@ class JsonMessageStore {
     this.filePath = filePath;
     this.data = { messages: [] };
     this.loaded = false;
+    this.uploadDir = path.join(path.dirname(filePath), '..', 'uploads');
+    // Đảm bảo thư mục uploads tồn tại
+    if (!fs.existsSync(this.uploadDir)) {
+      fs.mkdirSync(this.uploadDir, { recursive: true });
+    }
   }
 
   async init() {
@@ -27,9 +32,43 @@ class JsonMessageStore {
   }
 
   async saveMessage(message) {
+    // Xử lý lưu ảnh nếu có trong raw data
+    if (message.raw && message.raw.data && message.raw.data.attachments) {
+      await this.saveAttachmentsFromMessage(message);
+    }
+    
     this.data.messages.push(message);
     this.data.messages = this.data.messages.slice(-5000);
     await this.flush();
+  }
+
+  async saveAttachmentsFromMessage(message) {
+    const attachments = message.raw.data.attachments || [];
+    const imageTypes = ['photo', 'image'];
+    
+    for (const att of attachments) {
+      if (imageTypes.includes(att.type) && att.url) {
+        try {
+          const axios = await import('axios');
+          const response = await axios.default.get(att.url, {
+            responseType: 'arraybuffer',
+            timeout: 15000,
+          });
+          
+          const ext = att.url.split('.').pop()?.split('?')[0] || 'jpg';
+          const filename = `${message.threadId}-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+          const filepath = path.join(this.uploadDir, filename);
+          
+          await fsPromises.writeFile(filepath, response.data);
+          
+          // Cập nhật đường dẫn ảnh vào raw data
+          att.localPath = `/uploads/${filename}`;
+          logger.info({ filename, threadId: message.threadId }, 'Saved image from Zalo message');
+        } catch (error) {
+          logger.warn({ err: error, url: att.url }, 'Failed to download and save image');
+        }
+      }
+    }
   }
 
   listThreads(limit = 100) {
@@ -82,111 +121,8 @@ class JsonMessageStore {
 
 class SqliteMessageStore {
   constructor(filePath) {
-    this.db = new DatabaseSync(filePath);
-  }
-
-  async init() {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS messages (
-        id TEXT PRIMARY KEY,
-        thread_id TEXT NOT NULL,
-        thread_type TEXT NOT NULL,
-        direction TEXT NOT NULL,
-        sender_id TEXT,
-        sender_name TEXT,
-        group_name TEXT,
-        text TEXT NOT NULL,
-        raw_json TEXT,
-        at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_messages_thread_at ON messages(thread_id, at DESC);
-      CREATE INDEX IF NOT EXISTS idx_messages_at ON messages(at DESC);
-    `);
-
-    // Tự động nâng cấp bảng nếu thiếu cột group_name
-    try {
-      const tableInfo = this.db.prepare("PRAGMA table_info(messages)").all();
-      const hasGroupName = tableInfo.some(col => col.name === 'group_name');
-      if (!hasGroupName) {
-        logger.info('Migrating database: Adding group_name column');
-        this.db.exec("ALTER TABLE messages ADD COLUMN group_name TEXT");
-      }
-    } catch (e) {
-      logger.error({ err: e }, 'Failed to migrate database columns');
-    }
-  }
-
-  async saveMessage(message) {
-    const stmt = this.db.prepare(`
-      INSERT OR REPLACE INTO messages (id, thread_id, thread_type, direction, sender_id, sender_name, group_name, text, raw_json, at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    stmt.run(
-      message.id || null,
-      message.threadId || null,
-      message.threadType || null,
-      message.direction || null,
-      message.senderId ?? null,
-      message.senderName ?? null,
-      message.groupName ?? null,
-      message.text || '',
-      JSON.stringify(message.raw || null),
-      message.at || new Date().toISOString(),
-    );
-  }
-
-  listThreads(limit = 100) {
-    const stmt = this.db.prepare(`
-      SELECT thread_id as threadId,
-             thread_type as type,
-             MAX(at) as lastMessageAt,
-             (SELECT text FROM messages m2 WHERE m2.thread_id = m1.thread_id ORDER BY at DESC LIMIT 1) as snippet,
-             (SELECT group_name FROM messages mgroup WHERE mgroup.thread_id = m1.thread_id AND group_name IS NOT NULL ORDER BY at DESC LIMIT 1) as groupName,
-             (SELECT sender_name FROM messages m3 WHERE m3.thread_id = m1.thread_id AND direction = 'in' AND sender_name IS NOT NULL ORDER BY at DESC LIMIT 1) as senderName,
-             (SELECT direction FROM messages m4 WHERE m4.thread_id = m1.thread_id ORDER BY at DESC LIMIT 1) as lastDirection,
-             COUNT(*) as count
-      FROM messages m1
-      GROUP BY thread_id, thread_type
-      ORDER BY lastMessageAt DESC
-      LIMIT ?
-    `);
-    const rows = stmt.all(limit);
-    return rows.map((r) => ({
-      ...r,
-      displayName: r.type === 'group' ? (r.groupName || r.threadId) : (r.senderName || r.threadId),
-      needsReply: r.lastDirection === 'in',
-    }));
-  }
-
-  async deleteThread(threadId) {
-    const stmt = this.db.prepare('DELETE FROM messages WHERE thread_id = ?');
-    stmt.run(threadId);
-  }
-
-  listMessages(threadId, limit = 100) {
-    if (threadId) {
-      const stmt = this.db.prepare(`
-        SELECT id, thread_id as threadId, thread_type as threadType, direction, sender_id as senderId, sender_name as senderName, group_name as groupName, text, at
-        FROM messages
-        WHERE thread_id = ?
-        ORDER BY at DESC
-        LIMIT ?
-      `);
-      return stmt.all(threadId, limit).reverse();
-    }
-
-    const stmt = this.db.prepare(`
-      SELECT id, thread_id as threadId, thread_type as threadType, direction, sender_id as senderId, sender_name as senderName, group_name as groupName, text, at
-      FROM messages
-      ORDER BY at DESC
-      LIMIT ?
-    `);
-    return stmt.all(limit).reverse();
-  }
-
-  stats() {
-    const row = this.db.prepare('SELECT COUNT(*) as count FROM messages').get();
-    return { backend: 'sqlite', messageCount: row.count };
+    // SQLite không được hỗ trợ trong Node.js 20, fallback về JSON store
+    throw new Error('SQLite not available in Node.js 20');
   }
 }
 
