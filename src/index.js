@@ -100,12 +100,34 @@ async function attachZalo(api, messageStore) {
   api.listener.on('message', async (message) => {
     try {
       const sender = message.data.dName || message.data.displayName || message.threadId;
-      const text = message.data.content || '';
-      console.log(`\x1b[36m[Chat]\x1b[0m \x1b[32m${sender}:\x1b[0m ${text}`);
+      let text = '';
+      const content = message.data.content;
+      
+      // Xử lý trường hợp content là object thay vì chuỗi (ảnh, file, sticker...)
+      if (typeof content === 'string') {
+        text = content;
+      } else if (content !== null && content !== undefined && typeof content === 'object') {
+        // Không cố ép object thành string để tránh lỗi "Cannot convert object to primitive value"
+        // Chỉ đánh dấu là tin nhắn đa phương tiện
+        text = '[media_message]';
+      } else {
+        text = '';
+      }
+      
+      // Log an toàn, không in trực tiếp object phức tạp
+      if (text === '[media_message]') {
+        console.log(`\x1b[36m[Chat]\x1b[0m \x1b[32m${sender}:\x1b[0m [Đã gửi ảnh/file/sticker]`);
+      } else {
+        console.log(`\x1b[36m[Chat]\x1b[0m \x1b[32m${sender}:\x1b[0m ${text}`);
+      }
 
       const result = await runtime.handler.handle(message);
-      logger.info({ threadId: message.threadId, result }, 'Processed incoming message');
-      logBuffer.push('info', 'Processed incoming message', { threadId: message.threadId, result });
+      logger.info({ threadId: message.threadId, hasMedia: text === '[media_message]', textLength: text.length }, 'Processed incoming message');
+      logBuffer.push('info', 'Processed incoming message', { 
+        threadId: message.threadId, 
+        hasMedia: text === '[media_message]',
+        textLength: text.length
+      });
     } catch (error) {
       logger.error({ err: error }, 'Failed to process incoming message');
       logBuffer.push('error', 'Failed to process incoming message', { message: error?.message || String(error) });
