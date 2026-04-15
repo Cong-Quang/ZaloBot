@@ -49,7 +49,13 @@ export function createHttpServer({ state, conversations, simulateMessage, messag
 
   app.use(requireAuth);
   app.use('/assets', express.static(appConfig.publicDir));
-  app.use('/uploads', express.static(path.join(appConfig.dataDir, 'uploads')));
+  
+  // Tạo thư mục uploads nếu chưa tồn tại
+  const uploadsDir = path.join(appConfig.dataDir, 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  app.use('/uploads', express.static(uploadsDir));
 
   app.get('/login', (_req, res) => {
     res.sendFile('login.html', { root: appConfig.publicDir });
