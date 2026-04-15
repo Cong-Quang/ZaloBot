@@ -166,20 +166,41 @@
           
           // Kiểm tra và hiển thị ảnh nếu có
           let imageHtml = '';
-          if (m.raw && m.raw.data && m.raw.data.attachments) {
-            for (const att of m.raw.data.attachments) {
+          if (m.raw && m.raw.data) {
+            const attachments = m.raw.data.attachments || [];
+            const photoUrl = m.raw.data.photo;
+            
+            // Xử lý attachments
+            for (const att of attachments) {
               if (att.type === 'photo' || att.type === 'image') {
                 const imgUrl = att.localPath ? att.localPath : att.url;
-                imageHtml += `<img src="${imgUrl}" style="max-width: 300px; border-radius: 8px; margin: 8px 0; display: block;" alt="Image" />`;
+                imageHtml += `<img src="${imgUrl}" style="max-width: 300px; border-radius: 8px; margin: 8px 0; display: block; cursor: pointer;" onclick="openImageModal('${imgUrl}')" alt="Image" />`;
               }
+            }
+            
+            // Xử lý photo URL riêng
+            if (photoUrl && !attachments.some(att => att.url === photoUrl)) {
+              // Tìm localPath nếu có
+              const existingAtt = attachments.find(att => att.type === 'photo');
+              const imgUrl = existingAtt?.localPath || photoUrl;
+              imageHtml += `<img src="${imgUrl}" style="max-width: 300px; border-radius: 8px; margin: 8px 0; display: block; cursor: pointer;" onclick="openImageModal('${imgUrl}')" alt="Image" />`;
             }
           }
           
           return `<div class="msg-group ${m.direction}">${nameTag}<div class="bubble">${imageHtml}${escapeHtml(m.text)}</div><div class="msg-meta">${escapeHtml(m.at)}</div></div>`;
         }).join('');
         if (atBottom) wrap.scrollTop = wrap.scrollHeight;
-      } catch (e) {}
+      } catch (e) { console.error('Load messages error:', e); }
     }
+    
+    // Hàm mở modal xem ảnh
+    window.openImageModal = (imgUrl) => {
+      const modal = document.createElement('div');
+      modal.style.cssText = 'position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; display: flex; align-items: center; justify-content: center; cursor: zoom-out;';
+      modal.onclick = () => modal.remove();
+      modal.innerHTML = `<img src="${imgUrl}" style="max-width: 90%; max-height: 90%; object-fit: contain;" />`;
+      document.body.appendChild(modal);
+    };
     const fileInput = document.getElementById('fileInput'); const attachBtn = document.getElementById('attachBtn');
     attachBtn.onclick = () => fileInput.click();
     fileInput.onchange = () => { for (const f of fileInput.files) selectedFiles.push(f); renderPreviews(); };

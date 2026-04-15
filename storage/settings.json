@@ -1,0 +1,17 @@
+{
+  "aiBackend": "mock",
+  "openaiApiKey": "",
+  "openaiModel": "gpt-4.1-mini",
+  "openrouterApiKey": "",
+  "openrouterModel": "openai/gpt-4.1-mini",
+  "ollamaModel": "llama3.1:8b",
+  "ollamaBaseUrl": "http://127.0.0.1:11434",
+  "customAiBaseUrl": "",
+  "customAiApiKey": "",
+  "customAiModel": "",
+  "systemPrompt": "Bạn là trợ lý Zalo riêng của Quang. Trả lời bằng tiếng Việt, ngắn gọn, thân thiện, đúng trọng tâm.",
+  "zaloGroupRequireMention": true,
+  "zaloFirstGreeting": "Công Quang xin chào 👋",
+  "zaloIntroHint": "Bạn có thể đặt tên cho bot và chọn vibe như dễ thương, lịch sự, hài hước, lầy nhẹ, lạnh lùng hoặc chuyên nghiệp.",
+  "updatedAt": "2026-04-15T13:18:30.160Z"
+}

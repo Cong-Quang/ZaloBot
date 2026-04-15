@@ -44,8 +44,10 @@ class JsonMessageStore {
 
   async saveAttachmentsFromMessage(message) {
     const attachments = message.raw.data.attachments || [];
+    const photoUrl = message.raw.data.photo;
     const imageTypes = ['photo', 'image'];
     
+    // Xử lý attachments
     for (const att of attachments) {
       if (imageTypes.includes(att.type) && att.url) {
         try {
@@ -63,10 +65,41 @@ class JsonMessageStore {
           
           // Cập nhật đường dẫn ảnh vào raw data
           att.localPath = `/uploads/${filename}`;
-          logger.info({ filename, threadId: message.threadId }, 'Saved image from Zalo message');
+          logger.info({ filename, threadId: message.threadId, localPath: att.localPath }, 'Saved image from Zalo message');
         } catch (error) {
           logger.warn({ err: error, url: att.url }, 'Failed to download and save image');
         }
+      }
+    }
+    
+    // Xử lý photo URL nếu có
+    if (photoUrl) {
+      try {
+        const axios = await import('axios');
+        const response = await axios.default.get(photoUrl, {
+          responseType: 'arraybuffer',
+          timeout: 15000,
+        });
+        
+        const ext = photoUrl.split('.').pop()?.split('?')[0] || 'jpg';
+        const filename = `${message.threadId}-photo-${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+        const filepath = path.join(this.uploadDir, filename);
+        
+        await fsPromises.writeFile(filepath, response.data);
+        
+        // Tạo attachment giả lập cho photo
+        if (!message.raw.data.attachments) {
+          message.raw.data.attachments = [];
+        }
+        message.raw.data.attachments.push({
+          type: 'photo',
+          url: photoUrl,
+          localPath: `/uploads/${filename}`
+        });
+        
+        logger.info({ filename, threadId: message.threadId, localPath: `/uploads/${filename}` }, 'Saved photo from Zalo message');
+      } catch (error) {
+        logger.warn({ err: error, url: photoUrl }, 'Failed to download and save photo');
       }
     }
   }
