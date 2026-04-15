@@ -1,7 +1,9 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import express from 'express';
 import cookie from 'cookie';
 import multer from 'multer';
+import path from 'node:path';
 import { appConfig } from './config.js';
 import { buildAccessUrls, getIPv4Addresses, getWindowsIPv4Addresses, isWSL } from './network-info.js';
 
@@ -47,6 +49,7 @@ export function createHttpServer({ state, conversations, simulateMessage, messag
 
   app.use(requireAuth);
   app.use('/assets', express.static(appConfig.publicDir));
+  app.use('/uploads', express.static(path.join(appConfig.dataDir, 'uploads')));
 
   app.get('/login', (_req, res) => {
     res.sendFile('login.html', { root: appConfig.publicDir });
@@ -190,6 +193,17 @@ export function createHttpServer({ state, conversations, simulateMessage, messag
   app.get('/api/messages', (req, res) => {
     const threadId = req.query.threadId ? String(req.query.threadId) : '';
     res.json({ ok: true, messages: messageStore.listMessages(threadId, 200) });
+  });
+
+  app.get('/api/images/:filename', (req, res) => {
+    const filename = req.params.filename;
+    const filepath = path.join(appConfig.dataDir, 'uploads', filename);
+    
+    if (!fs.existsSync(filepath)) {
+      return res.status(404).json({ ok: false, error: 'Image not found' });
+    }
+    
+    res.sendFile(filepath);
   });
 
   app.delete('/api/threads/:threadId', async (req, res, next) => {

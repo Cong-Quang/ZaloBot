@@ -163,7 +163,19 @@
         const wrap = document.getElementById('messages'); const atBottom = wrap.scrollHeight - wrap.scrollTop - wrap.clientHeight < 100;
         wrap.innerHTML = data.messages.map(m => {
           const nameTag = m.direction === 'in' ? `<div style="font-size: 11px; color: var(--muted); margin-bottom: 4px;">${escapeHtml(m.senderName || 'Người dùng')}</div>` : '';
-          return `<div class="msg-group ${m.direction}">${nameTag}<div class="bubble">${escapeHtml(m.text)}</div><div class="msg-meta">${escapeHtml(m.at)}</div></div>`;
+          
+          // Kiểm tra và hiển thị ảnh nếu có
+          let imageHtml = '';
+          if (m.raw && m.raw.data && m.raw.data.attachments) {
+            for (const att of m.raw.data.attachments) {
+              if (att.type === 'photo' || att.type === 'image') {
+                const imgUrl = att.localPath ? att.localPath : att.url;
+                imageHtml += `<img src="${imgUrl}" style="max-width: 300px; border-radius: 8px; margin: 8px 0; display: block;" alt="Image" />`;
+              }
+            }
+          }
+          
+          return `<div class="msg-group ${m.direction}">${nameTag}<div class="bubble">${imageHtml}${escapeHtml(m.text)}</div><div class="msg-meta">${escapeHtml(m.at)}</div></div>`;
         }).join('');
         if (atBottom) wrap.scrollTop = wrap.scrollHeight;
       } catch (e) {}
